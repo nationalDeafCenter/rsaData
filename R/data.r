@@ -1,4 +1,5 @@
 library(tidyverse)
+options(stringsAsFactors=FALSE)
 
 dat <- read_csv('../../data/PY17annual_public_disabilitycode.csv')
 
@@ -15,6 +16,7 @@ dat$deafBlind <- dat$PrimDisability==8|dat$SecondDisability==8
 dat$physical <- dat$PrimDisability%in%c(10:16)&!dat$deafAll
 dat$mental <- dat$PrimDisability%in%c(17:19)&!dat$deafAll
 
+dat$deaf <- ifelse(dat$deafAll,'deaf','not deaf')
 
 dat$deafAllPrim <- dat$PrimDisability%in%c(3:8)
 
@@ -26,6 +28,12 @@ dat <-
                      ifelse(is.na(SecondDisability),'not deaf',
                        ifelse(SecondDisability%in%c(3,5),'Visual',
                          ifelse(SecondDisability%in%c(4,6,7),'Auditory',
-                           ifelse(SecondDisability==8,'deafBlind','not deaf')))))))
-    )
+                           ifelse(SecondDisability==8,'deafBlind','not deaf'))))))),
+    type=ifelse(deafAll,'deaf',
+      ifelse(physical,'physical',
+        ifelse(mental,'mental',
+          ifelse(PrimDisability%in%c(1,2),'blind',
+            ifelse(PrimDisability==9,'Communicative','Other')))))
+  )
+
 
