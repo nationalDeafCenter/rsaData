@@ -75,7 +75,7 @@ for(rv in raceVars){
     print()
 }
 
-  print(filter(dat,deafAll)))
+
 
 crossTabs$race <- lapply(raceVars,ct,dat=dat)
 
@@ -172,6 +172,39 @@ crossTabs$edAttainment$type[[3]]%>%
   scale_color_manual(values=subwayPalette)+
   xlab('% Attained At Least...')
 ggsave('edAttainmentByDisabilityType.jpg')
+
+
+### OOS
+
+## check:
+with(dat,sum(!is.na(OOSExitDate)&is.na(OOSPlacementDate)))
+
+dat <- dat%>%
+  mutate(
+    oos=ifelse(
+      is.na(OOSPlacementDate),'neverOOS',
+      ifelse(is.na(OOSExitDate),'currentOOS','previousOOS')
+    ),
+    oosTime=ifelse(oos=='previousOOS',
+      as.Date(OOSExitDate,format="%Y%m%d")-as.Date(OOSPlacementDate,format="%Y%m%d"),
+      NA
+    )
+  )
+
+crossTabs$oos <- ct('oos',dat)
+
+pdf('oosBoxplots.pdf')
+
+dat%>%
+  mutate(deaf=ifelse(deafAll,'deaf','hearing'))%>%
+  select(oosTime,deaf,deafType,type)%>%
+  gather('grouping','group',-oosTime)%>%
+  ggplot(aes(group,oosTime))+
+  geom_boxplot()+
+  scale_y_continuous("Days on OOS",trans="log",breaks=c(10,100,500,1000,3000))+
+  facet_wrap(~grouping,scales="free_x")+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+ggsave('timeOnOOS.jpg')
 
 
 write.xlsx(lapply(setdiff(names(crossTabs),'race'),toExcel,crossTabs=crossTabs),
