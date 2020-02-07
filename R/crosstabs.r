@@ -18,7 +18,9 @@ crossTabs <- list()
 #############################
 crossTabs$IPE <- ct('hasIPE',dat)
 ### look at only people with IPE?
-# dat <- filter(dat,hasIPE)
+datNoIPE <- filter(dat,!hasIPE)
+
+dat <- filter(dat,hasIPE)
 
 #############################
 ##sex
@@ -193,7 +195,7 @@ dat <- dat%>%
 
 crossTabs$oos <- ct('oos',dat)
 
-pdf('oosBoxplots.pdf')
+#pdf('oosBoxplots.pdf')
 
 dat%>%
   mutate(deaf=ifelse(deafAll,'deaf','hearing'))%>%
@@ -212,3 +214,20 @@ write.xlsx(lapply(setdiff(names(crossTabs),'race'),toExcel,crossTabs=crossTabs),
   rowNames=FALSE,colNames=FALSE)
 
 write.xlsx(lapply(names(crossTabs$race),toExcel,crossTabs=crossTabs$race),file='rsaRaceCrossTabs.xlsx',colNames=FALSE)
+
+#### multiple disabilities?
+xtabs(~is.na(PrimDisability)+is.na(SecondDisability),dat)
+xtabs(~is.na(PrimDisability)+is.na(SecondDisability),datNoIPE)
+
+## for deaf:
+
+
+xtabs(~deafAll+noSecondDis,dat)
+mean(dat$noSecondDis[dat$deafAll])
+mean(dat$noSecondDis[!dat$deafAll])
+
+ct('noSecondDis',dat)
+ct('noSecondDis',datNoIPE)
+
+
+xtabs(~deafAll+is.na(SecondDisability),datNoIPE)
