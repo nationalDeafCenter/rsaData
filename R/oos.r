@@ -1,7 +1,28 @@
+library(RColorBrewer)
 library(tidyverse)
 library(openxlsx)
+library(survival)
+library(usmap)
 source('R/data.r')
 source('R/crossTabsFunctions.r')
+
+### notes: some weirdness:
+
+capitalize <- function(x) paste0(toupper(substr(x,1,1)),substr(x,2,nchar(x)))
+
+
+dat%>%filter(state=='IN')%>%
+
+
+  map(unique(dat$group),function(g) xtabs(~is.na(OOSPlacementDate)+is.na(OOSExitDate),data=filter(dat,state=='IN',group==g)))%>%setNames(.,unique(dat$group))
+
+
+
+  group_by(group)%>%group_map(~as.data.fr
+## almost eeryone on OOS is still on OOS in Indiana (other states too?)
+
+### express percentages as % of people ever on OOS who still are, etc
+
 
 
 ### do we have some descriptive analyses showing % of deaf only vs other disability groups being on the waiting list?
@@ -48,14 +69,27 @@ groupNs <- dat%>%group_by(group)%>%summarize(n=n())%>%column_to_rownames("group"
 ## Duration on OOS
 ## Any other OOS data??
 
-kmQuantile <- function(km,p)
-  mean(c(max(km$time[km$surv>=p]),min(km$time[km$surv<=p])))
+kmQuantile <- function(km,p){
+  out <- mean(c(max(km$time[km$surv>=p]),min(km$time[km$surv<=p])))
+  if(!is.finite(out)) return('*')
+  out
+}
 
 kmDuration <- function(followupTime,leftOOS,oos){
-  if(sum(oos!='neverOOS')<20) return('[n too small]')
+  if(sum(oos!='neverOOS')==0) return('')
+  if(sum(oos!='neverOOS')<20) return('*')
   survObj <- Surv(followupTime[oos!='neverOOS'],leftOOS[oos!='neverOOS'])
   km <- survfit(survObj~1)
+  if(all(km$surv>0.25)|all(km$surv<0.75)) return('*')
   paste0(kmQuantile(km,0.5),' (',kmQuantile(km,0.75),',',kmQuantile(km,0.25),')')
+}
+
+rawDuration <- function(oosTime){
+  if(all(is.na(oosTime))) return(' ')
+  paste0(
+    round(median(oosTime,na.rm=TRUE)),
+    ' (',paste(round(quantile(oosTime,c(.25,.75),na.rm=TRUE)),collapse='-'),')'
+  )
 }
 
  boxplot(age_app~group,dat)
@@ -80,9 +114,28 @@ OOStab <- function(what){
   as.data.frame(out)
 }
 
-OOSstateTab <- function(what){
+OOSstateTab <- function(what,header=TRUE){
   what <- enquo(what)
-  out <- dat%>%group_by(group)%>%summarize(overall=!! what)%>%column_to_rownames("group")%>%t()
+  out <-  dat%>%
+      group_by(group,state)%>%
+      summarize(Y=!! what)%>%
+      spread(group,Y,fill=NA)%>%
+    column_to_rownames("state")
+  if(header){
+    out <- rbind(
+      dat%>%
+        group_by(group)%>%
+        summarize(overall=!! what)%>%
+        column_to_rownames("group")%>%
+        t(),
+      NA,
+      out
+    )
+    rownames(out)[1:2] <- c('Overall','By State')
+  }
+  as.data.frame(out)
+}
+
   out <- rbind(out,NA)
     rownames(out)[nrow(out)] <- "By State"
   out <- rbind(out,
@@ -96,12 +149,17 @@ OOSstateTab <- function(what){
 }
 
 
+
 OOSresults <- list(
   `% Current OOS`=OOStab(mean(oos=='currentOOS',na.rm=TRUE)*100),
   `% Ever OOS`=OOStab(mean(oos=='currentOOS'|oos=='previousOOS',na.rm=TRUE)*100),
   `% Exited OOS by 2017`=OOStab(mean(oos=='previousOOS',na.rm=TRUE)*100),
-  `Days on OOS (Exited)`=rbind(OOStab(paste0(round(median(oosTime,na.rm=TRUE)),' (',paste(round(quantile(oosTime,c(.25,.75),na.rm=TRUE)),collapse='-'),')')),c('Median and mid-50% interval',rep(NA,5))),
-  `OOS Duration (Estimate)`=rbind(OOStab(kmDuration(followupTime,leftOOS,oos)),c('Median and mid-50% interval',rep(NA,5))),
+  `Days on OOS (Exited)`=rbind(OOStab(rawDuration(oosTime)),c('Median and mid-50% interval',rep(NA,5))),
+  `OOS Duration (Estimate)`=rbind(
+    OOStab(kmDuration(followupTime,leftOOS,oos)),
+    c('Median and mid-50% interval',rep(NA,5)),
+    c('* Not enough data to estimate',rep(NA,5))
+   ),
   `Sample Sizes (# people)`=OOStab(n()),
   `Demographic breakdown`=OOStab(n()/groupNs[group[1],'n']*100)
 )
@@ -112,8 +170,15 @@ OOSbyState <- list(
   `% Current OOS`=OOSstateTab(mean(oos=='currentOOS',na.rm=TRUE)*100),
   `% Ever OOS`=OOSstateTab(mean(oos=='currentOOS'|oos=='previousOOS',na.rm=TRUE)*100),
   `% Exited OOS by 2017`=OOSstateTab(mean(oos=='previousOOS',na.rm=TRUE)*100),
-  `Days on OOS (Exited)`=rbind(OOSstateTab(paste0(round(median(oosTime,na.rm=TRUE)),' (',paste(round(quantile(oosTime,c(.25,.75),na.rm=TRUE)),collapse='-'),')')),c('Median and mid-50% interval',rep(NA,5))),
-  `OOS Duration (Estimate)`=rbind(OOSstateTab(kmDuration(followupTime,leftOOS,oos)),c('Median and mid-50% interval',rep(NA,5))),
+  `Days on OOS (Exited)`=rbind(
+    OOSstateTab(rawDuration(oosTime)),
+    c('Median and mid-50% interval',rep(NA,5))
+  ),
+  `OOS Duration (Estimate)`=rbind(
+    OOSstateTab(kmDuration(followupTime,leftOOS,oos)),
+    c('Median and mid-50% interval',rep(NA,5)),
+    c('* Not enough data to estimate',rep(NA,5))
+   ),
   `Sample Sizes (# people)`=OOSstateTab(n()),
   `Demographic breakdown`=OOSstateTab(n()/groupNs[group[1],'n']*100)
 )
@@ -121,4 +186,37 @@ OOSbyState <- list(
 
 openxlsx::write.xlsx(OOSbyState,"OOSstate.xlsx",rowNames=TRUE)
 
+### maps for state data
+current <- OOSstateTab(mean(oos=='currentOOS',na.rm=TRUE),header=FALSE)
+ever <- OOSstateTab(mean(oos=='currentOOS'|oos=='previousOOS',na.rm=TRUE),header=FALSE)
 
+current[ever==0] <- NA
+ever[ever==0] <- NA
+current$fips <- statepop$fips[match(rownames(current),statepop$abbr)]
+ever$fips <- statepop$fips[match(rownames(ever),statepop$abbr)]
+
+all.equal(map_chr(na.omit(current$fips),~statepop$abbr[statepop$fips==.]),
+  rownames(current)[!is.na(current$fips)])
+
+maxes=map_dbl(list(current=current,ever=ever),
+  function(meas) max(do.call('c',meas[c('deafblind','justDeaf','deafDisabled')]),na.rm=TRUE))
+
+for(meas in list('current','ever')){
+  res <- get(meas)
+  for(who in c('deafblind','justDeaf','deafDisabled')){
+    plot_usmap(data=res,values=who,color='black')+
+      scale_fill_continuous(
+        name=paste0(
+          switch(who,
+            deafblind='Deafblind',
+            justDeaf='Deaf-Nondisabled',
+            deafDisabled='Deafdisabled'
+          ),'\n',
+          capitalize(meas),' OOS'
+        ),
+        limits=c(0,maxes[meas]),
+        label=scales::percent,low='#f7fcf5',high="#00A79D",na.value='white')+
+    theme(legend.position='right')
+    ggsave(paste0('maps/',who,meas,'.pdf'))
+  }
+}
