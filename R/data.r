@@ -52,3 +52,68 @@ withIPE <- rbind(n=withIPE,percent=withIPE/sum(dat$hasIPE)*100)
 withIPE <- rbind(
   n=prettyNum(withIPE[1,],big.mark=',',digits=0),
   percent=prettyNum(withIPE[2,],digits=2))
+
+
+###### demos
+#############################
+##sex
+#############################
+## CodeDescription
+## 1Individual indicates that he is male.
+## 2Individual indicates that she is female.
+## 9Individual did not self-identify their sex.
+dat <- mutate(dat,sex=ifelse(Sex==1,'Male',ifelse(Sex==2,'Female',NA)))
+
+
+#############################
+# race
+#############################
+raceVars <- c(
+  'AmerIndian',
+  'Asian',
+  'Black',
+  'Hawaiian',
+  'White',
+  'Hispanic'
+)
+
+for(rv in raceVars) dat[[rv]][dat[[rv]]==9] <- NA
+
+dat$nrace <- rowSums(dat[,setdiff(raceVars,'White')],na.rm=TRUE)
+dat$nrace2 <- rowSums(dat[,setdiff(raceVars,c('White','Hispanic'))],na.rm=TRUE)
+#table(dat$nrace)/nrow(dat)
+
+## a combined race variable modeled after attainment/employment report
+dat <- mutate(dat,
+  sex=ifelse(Sex==1,'Male',ifelse(Sex==2,'Female',NA)),
+  raceEth=
+    ifelse(!is.na(Hispanic)&Hispanic==1,"Latinx",
+      ifelse(nrace>1,"Multiracial",
+        ifelse(!is.na(Black)&Black==1,"African American",
+          ifelse(!is.na(Asian)&Asian==1,"Asian",
+            ifelse(!is.na(Hawaiian)&Hawaiian==1,"Hawaiian",
+              ifelse(!is.na(AmerIndian)&AmerIndian==1,"American Indian",
+                ifelse(!is.na(White)&White==1,"White","Other/NA"))))))),
+  ageApp=ifelse(age_app<18,'<18',
+             ifelse(age_app<25,'18-24',
+               ifelse(age_app<35,'25-35',
+                 ifelse(age_app<45,'35-44',
+                   ifelse(age_app<55,'45-54',
+                     ifelse(age_app<65,'55-64',
+                       ifelse(age_app<75,'65-74','75+'))))))),
+  ageIPE=ifelse(age_IPE<18,'<18',
+             ifelse(age_IPE<25,'18-24',
+               ifelse(age_IPE<35,'25-35',
+                 ifelse(age_IPE<45,'35-44',
+                   ifelse(age_IPE<55,'45-54',
+                     ifelse(age_IPE<65,'55-64',
+                       ifelse(age_IPE<75,'65-74','75+')))))))
+)
+
+
+states <- read.csv('states.csv')
+states$abb <- gsub(' ','',states$abb)
+dat <- mutate(dat,
+  acode=ifelse(AgencyCode>56,AgencyCode-56,AgencyCode)
+)
+dat$state <- states$abb[dat$acode]
