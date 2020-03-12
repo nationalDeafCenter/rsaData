@@ -10,9 +10,11 @@ source('R/crossTabsFunctions.r')
 
 capitalize <- function(x) paste0(toupper(substr(x,1,1)),substr(x,2,nchar(x)))
 
-
-dat%>%filter(state=='IN')%>%
-
+round.data.frame <- function(x,digits=0){
+  #require(purr)
+  x[,map_lgl(x,is.numeric)] <- lapply(x[,map_lgl(x,is.numeric)],round,digits=digits)
+  x
+}
 
   map(unique(dat$group),function(g) xtabs(~is.na(OOSPlacementDate)+is.na(OOSExitDate),data=filter(dat,state=='IN',group==g)))%>%setNames(.,unique(dat$group))
 

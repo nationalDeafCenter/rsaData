@@ -117,3 +117,40 @@ dat <- mutate(dat,
   acode=ifelse(AgencyCode>56,AgencyCode-56,AgencyCode)
 )
 dat$state <- states$abb[dat$acode]
+
+
+### ssi/ssri
+dat <- mutate(dat,
+  SSDI=ifelse(appSSDI==1,
+    'Applicant receives SSDI',
+    'Applicant does not receive SSDI'),
+  SSI=ifelse(appSSI==1,
+    'Applicant receives SSI',
+    'Applicant does not receive SSI')
+)
+
+
+### Status at IEP: employment, hourly wage, highestEdcompleted,
+
+edLevs <-
+  ## copied from CASE SERVICE REPORT (RSA-911) p. 64
+  c(
+    "Individual attained a secondary school diploma.",
+    "Individual attained a secondary school equivalency.",
+    "Individual has a disability and attained a certificate of attendance/completion as a result of successfully completing an Individualized Education Program (IEP).",
+    "Individual completed one or more years of postsecondary education.",
+    "Individual attained a postsecondary certification, license, or educational certificate (non-degree).",
+    "Individual attained an Associate's Degree.",
+    "Individual attained a Bachelor's Degree.",
+    "Individual attained a degree beyond a Bachelor's Degree.",
+    "No educational level was completed."
+  )
+
+dat <- mutate(dat,
+  education=#edLevs[EdLevelCompleted],
+    cut(EdLevelCompleted,c(0,3,4,5,6,7,8,9),levels=c('HS','Some College','Certificate','AA','BA','>BA','no HS')),
+  employment=
+    cut(ipeEmpStatus,c(0,6,9,10),labels=c('Employed','Student','Not Employed')),
+  hourlyWage= cut(ipeHourlyWage, c(0, 1, 7.25, 9, 11, 15, Inf), include.lowest = TRUE, right = FALSE),
+  fulltime=ipeWeeklyHoursWorked>=35
+)
