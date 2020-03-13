@@ -10,7 +10,7 @@ options(stringsAsFactors=FALSE)
 ## Physical
 ## Mental
 
-dat <- read_csv('../../data/PY17annual_public_disabilitycode.csv')
+dat <- read_csv('../../data/PY17annual_public_disabilitycode.csv',col_types = cols(.default = col_character())) %>% type_convert()
 
 ### application ->  eligibility -> (OOSPlacement-> OOSExit->) ipe
 
