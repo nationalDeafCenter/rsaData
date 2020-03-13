@@ -78,12 +78,42 @@ preEts <-  map(c('petsdate','anyServ',services),preEtsTab)
 ##   )
 names(preEts) <- c('Start Date','Any',toupper(services))
 
+petsType <- dat%>%
+  filter(
+    Student>0
+    )%>%
+  group_by(group)%>%
+    summarize(`% Receiving Any`=mean(anyServ,na.rm=TRUE)*100)%>%
+    column_to_rownames("group")%>%
+  t()%>%
+  as.data.frame()%>%
+  rownames_to_column("what")%>%
+  add_case(what="Of which...")
+
+for(serv in services){
+  petsType <- bind_rows(petsType,
+    dat%>%
+      filter(
+        Student>0,
+        anyServ
+      )%>%
+      group_by(group)%>%
+    summarize(overall=sum(!! sym(serv),na.rm=TRUE)/n()*100)%>%
+    column_to_rownames("group")%>%
+      t()%>%
+      as.data.frame()%>%
+      mutate(what=paste("% Receive/d",serv))
+  )
+}
+
+preEts$type <- petsType
+
 preEts <- map(preEts,round,digits=1)
 
 preEts <- map(preEts,function(x) rbind(x,`All numbers are % ever received pre-ETS service`=NA,`Classified as "Student with a Disability"`=NA))
 
 
-openxlsx::write.xlsx(preEts,"preEts.xlsx",rowNames=TRUE)
+openxlsx::write.xlsx(preEts,"results/preEts.xlsx",rowNames=TRUE)
 
 preEtsCurrent <-  map(c('petsdate',paste0(c('anyServ',services),'Current')),preEtsTab)
 ## preEts <- map(1:length(preEts),
@@ -91,20 +121,52 @@ preEtsCurrent <-  map(c('petsdate',paste0(c('anyServ',services),'Current')),preE
 ##   )
 names(preEtsCurrent) <- c('Start Date','Any',toupper(services))
 
+petsTypeCurrent <- dat%>%
+  filter(
+    Student>0
+    )%>%
+  group_by(group)%>%
+    summarize(`% Receiving Any`=mean(anyServCurrent,na.rm=TRUE)*100)%>%
+    column_to_rownames("group")%>%
+  t()%>%
+  as.data.frame()%>%
+  rownames_to_column("what")%>%
+  add_case(what="Of which...")
+
+for(serv in services){
+  petsTypeCurrent <- bind_rows(petsTypeCurrent,
+    dat%>%
+      filter(
+        Student>0,
+        anyServCurrent
+      )%>%
+      group_by(group)%>%
+    summarize(overall=sum(!! sym(paste0(serv,'Current')),na.rm=TRUE)/n()*100)%>%
+    column_to_rownames("group")%>%
+      t()%>%
+      as.data.frame()%>%
+  mutate(what=paste("% Currently Receive",serv))
+  )
+}
+
+preEtsCurrent$type <- petsTypeCurrent
+
 preEtsCurrent <- map(preEtsCurrent,round,digits=1)
 
-preEtsCurrent <- map(preEts,function(x) rbind(x,`All numbers are % currently receiving pre-ETS service`=NA,`Classified as "Student with a Disability"`=NA))
+preEtsCurrent <- map(preEtsCurrent,function(x) rbind(x,`All numbers are % currently receiving pre-ETS service`=NA,`Classified as "Student with a Disability"`=NA))
 
 
-openxlsx::write.xlsx(preEtsCurrent,"preEtsCurrent.xlsx",rowNames=TRUE)
+openxlsx::write.xlsx(preEtsCurrent,"results/preEtsCurrent.xlsx",rowNames=TRUE)
+
+
 
 
 ## oos and pre-ets?
 dat <- dat%>%
   mutate(
     exitDate2=as.Date(as.character(exitDate),format="%Y%m%d"),
-    OOSExitDate=as.Date(OOSExitDate,format="%Y%m%d"),
-    OOSPlacementDate=as.Date(OOSPlacementDate,format="%Y%m%d"),
+    OOSExitDate=as.Date(as.character(OOSExitDate),format="%Y%m%d"),
+    OOSPlacementDate=as.Date(as.character(OOSPlacementDate),format="%Y%m%d"),
     OOSendDate=pmin(OOSExitDate,exitDate2,na.rm=TRUE),
     oos=ifelse(
       is.na(OOSPlacementDate),'neverOOS',
@@ -142,7 +204,7 @@ oosEts <- map(oosEts,round,digits=1)
 oosEts <- map(oosEts,function(x) rbind(x,`All numbers are % ever received pre-ETS service`=NA,`Classified as "Student with a Disability"`=NA))
 
 
-openxlsx::write.xlsx(oosEts,"oosEts.xlsx",rowNames=TRUE)
+openxlsx::write.xlsx(oosEts,"results/oosEts.xlsx",rowNames=TRUE)
 
 
 oosETScurrent <- function(serv){
@@ -174,7 +236,7 @@ oosEtsCurrent <- map(oosEtsCurrent,round,digits=1)
 oosEtsCurrent <- map(oosEtsCurrent,function(x) rbind(x,`All numbers are % currently receive pre-ETS service`=NA,`Classified as "Student with a Disability"`=NA))
 
 
-openxlsx::write.xlsx(oosEtsCurrent,"oosEtsCurrent.xlsx",rowNames=TRUE)
+openxlsx::write.xlsx(oosEtsCurrent,"results/oosEtsCurrent.xlsx",rowNames=TRUE)
 
 
 
