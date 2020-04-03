@@ -1,20 +1,21 @@
 library(tidyverse)
 options(stringsAsFactors=FALSE)
-
+library(openxlsx)
+options("openxlsx.wrapText"=TRUE)
 ## Deaf (no secondary, exclude deafblind)
 ## Deaf (two disabilities at least 1 is deaf,  exclude deafblind)
 ## DeafBlind (primary or secondary or either)
 
 ## Comparison groups:
 ## Everyone else
-## Physical
-## Mental
+## Mobility
+## Cognitive
 
 dat <- read_csv('../../data/PY17annual_public_disabilitycode.csv',col_types = cols(.default = col_character())) %>% type_convert()
 
 ### application ->  eligibility -> (OOSPlacement-> OOSExit->) ipe
 
-
+impairments <- read.csv('impairments.csv',sep=';')
 
 dat <- dat%>%
     mutate(
@@ -23,22 +24,75 @@ dat <- dat%>%
       primCat=
         ifelse(PrimDisability%in%3:7,'deaf',
           ifelse(PrimDisability==8,'deafblind',
-            ifelse(PrimDisability%in%10:16,'physical',
-              ifelse(PrimDisability>16,'mental','other')))),
+            ifelse(PrimDisability%in%10:16,'mobility',
+              ifelse(PrimDisability>16,'cognitive','other')))),
       SecondCat=
         ifelse(is.na(SecondDisability)|SecondDisability==0,'none',
           ifelse(SecondDisability%in%3:7,'deaf',
             ifelse(SecondDisability==8,'deafblind',
-              ifelse(SecondDisability%in%10:16,'physical',
-                ifelse(SecondDisability>16,'mental','other'))))),
+              ifelse(SecondDisability%in%10:16,'mobility',
+                ifelse(SecondDisability>16,'cognitive','other'))))),
       group=
         ifelse(primCat=='deafblind'|SecondCat=='deafblind','deafblind',
           ifelse(SecondCat=='none',
-            ifelse(primCat=='deaf','justDeaf',primCat),
+            ifelse(primCat=='deaf','deafNonDisabled',primCat),
             ifelse(primCat=='deaf'|SecondCat=='deaf','deafDisabled',primCat)
           )),
-      deafAll=ifelse(group%in%c('deafblind','justDeaf','deafDisabled'),'deaf','hearing')
+      deafAll=ifelse(group%in%c('deafblind','deafNonDisabled','deafDisabled'),'deaf','hearing')
     )
+
+### impairments by group table
+dat$imp1 <- impairments$imp[dat$PrimDisability+1]
+dat$imp2 <- impairments$imp[dat$SecondDisability+1]
+dat$imp2 <- ifelse(dat$imp2%in%c(
+  "No Impairment",
+  "Other Hearing Impairments (Tinnitus, Meniere's Disease, hyperacusis, etc.)",
+  "Deafness, Primary Communication Auditory",
+  "Hearing Loss, Primary Communication Auditory",
+  "Hearing Loss, Primary Communication Visual",
+  "Deafness, Primary Communication Visual",
+  "Deaf-Blindness"),
+  dat$imp2,
+  "Other Non-Hearing-Related Impairment")
+
+dat$imp1 <- factor(dat$imp1,levels=impairments$imp)
+dat$imp2 <- factor(dat$imp2,levels=c(impairments$imp,"Other Non-Hearing-Related Impairment"))
+
+
+#sink('impTab.tsv')
+#cat('Group\tPrimary\tSecondary\tDefinition\n')
+groupDef <- function(dat,percentage=FALSE){
+  impTab <- tibble()
+  for(g in sort(unique(dat$group))){
+    #cat(g)
+    denom <- ifelse(percentage,sum(dat$group==g)/100,1)
+    prim <- xtabs(~imp1,data=filter(dat,group==g),drop=TRUE)/denom
+    prim <- paste0(names(prim),' (',round(unname(prim)),')')
+    sec <- xtabs(~imp2,data=filter(dat,group==g),drop=TRUE)/denom
+    sec <- paste0(names(sec),' (',round(unname(sec)),')')
+
+    for(i in 1:max(c(length(prim),length(sec)))){
+      # cat('\t')
+      if(i==1){
+        impTab <- bind_rows(impTab,tibble(Group=g,Primary=prim[1],Secondary=sec[1],
+          Definition=switch(g,
+            cognitive="Non-deaf; primary disability classifed as \"Mental Impairment\"",
+            deafblind="Primary or secondary disability is \"Deaf-Blindness\"",
+            deafNonDisabled="Primary disability is deafness or hearing loss/impairment; no secondary disability",
+            deafDisabled="Primary or secondary disability is deafness or hearing loss/impairment; a secondary disability is listed",
+            mobility="Non-deaf; primary disability classified as \"Physical Impairment\"",
+            other="Non-deaf; primary disability is another \"Sensory/Communicative Impairment\""))
+        )
+      } else impTab <- bind_rows(impTab,tibble(Primary=prim[i],Secondary=sec[i]))
+    }
+  }
+  impTab
+}
+
+impTab <- groupDef(dat)
+impTabPer <- groupDef(dat,percentage=TRUE)
+openxlsx::write.xlsx(list(n=impTab,percentage=impTabPer),'results/groupDefFull.xlsx')#,alignment=Alignment(wrapText=TRUE))
+
 
 ## compute numbers:
 total <- c(table(dat$group),total=nrow(dat))
@@ -154,3 +208,4 @@ dat <- mutate(dat,
   hourlyWage= cut(ipeHourlyWage, c(0, 1, 7.25, 9, 11, 15, Inf), include.lowest = TRUE, right = FALSE),
   fulltime=ipeWeeklyHoursWorked>=35
 )
+
