@@ -156,13 +156,23 @@ numbers <- numbers%>%
 dat <- dat%>%
   mutate(
     mathType=
-      ifelse(is.na(ApplicationDate)&is.na(IPEAmendedDate)&stud&petstype,'I',
-      ifelse(!is.na(ApplicationDate)&!is.na(IPEAmendedDate)&stud&petstype,'II',
-      ifelse(!is.na(ApplicationDate)&!is.na(IPEAmendedDate)&stud&!petstype,'III',
-      ifelse(!is.na(ApplicationDate)&!is.na(IPEAmendedDate)&!stud&!petstype,'IV',
-      ifelse(!is.na(ApplicationDate)&is.na(IPEAmendedDate)&!petstype,'V','other')
+      ifelse(is.na(ApplicationDate)&is.na(IPEAmendedDate)&stud&petsdate,'I',
+      ifelse(!is.na(ApplicationDate)&!is.na(IPEAmendedDate)&stud&petsdate,'II',
+      ifelse(!is.na(ApplicationDate)&!is.na(IPEAmendedDate)&stud&!petsdate,'III',
+      ifelse(!is.na(ApplicationDate)&!is.na(IPEAmendedDate)&!stud&!petsdate,'IV',
+      ifelse(!is.na(ApplicationDate)&is.na(IPEAmendedDate)&!petsdate,'V','other')
       ))))
   )
+
+dat%>%
+  filter(is.na(age_app)|(age_app>14&age_app<21),is.na(exitDate),anyServCurrent)%>%
+  group_by(mathType)%>%
+  summarize(n())
+
+math <- dat%>%
+  filter(mathType%in%c('I','II'),stud,anyServCurrent,is.na(age_app)|(age_app>=14&age_app<22))%>%
+  group_by(mathType)%>%
+  summarize_at(paste0(services,'Current'),mean,na.rm=TRUE)
 
 ## percentages <- bind_rows(
 ##   dat%>%filter(stud)%>%summarize(percent=100),
@@ -262,7 +272,7 @@ preEts <-  map(c('petsdate','anyServ',services),preEtsTab)
 ##   )
 names(preEts) <- c('Start Date','Any',toupper(services))
 
-petsType <- dat%>%
+petsdate <- dat%>%
   filter(
     Student>0
     )%>%
@@ -275,7 +285,7 @@ petsType <- dat%>%
   add_case(what="Of which...")
 
 for(serv in services){
-  petsType <- bind_rows(petsType,
+  petsdate <- bind_rows(petsdate,
     dat%>%
       filter(
         Student>0,
@@ -297,13 +307,13 @@ for(serv in services){
 }
 
 pvalStar <- function(p) ifelse(p<0.001,'***',ifelse(p<0.01,'**',ifelse(p<0.05,'*',ifelse(p<0.1,'.',''))))
-petsType <- cbind(petsType,pvalStar=c(NA,NA,
+petsdate <- cbind(petsdate,pvalStar=c(NA,NA,
   map_chr(services,
     ~chisq.test(xtabs(as.formula(paste('~',.,'+group')),filter(dat,stud,petsdate)))$p.value%>%pvalStar())
   ))
 
 
-preEts$type <- round(petsType)
+preEts$type <- round(petsdate)
 
 preEts <- map(preEts,function(x) rbind(x,`All numbers are % ever received pre-ETS service`=NA,`Classified as "Student with a Disability"`=NA))
 
@@ -336,7 +346,7 @@ openxlsx::write.xlsx(preEts,"results/preEts.xlsx",rowNames=TRUE)
 ## ##   )
 ## names(preEtsCurrent) <- c('Start Date','Any',toupper(services))
 
-## petsTypeCurrent <- dat%>%
+## petsdateCurrent <- dat%>%
 ##   filter(
 ##     Student>0
 ##     )%>%
@@ -349,7 +359,7 @@ openxlsx::write.xlsx(preEts,"results/preEts.xlsx",rowNames=TRUE)
 ##   add_case(what="Of which...")
 
 ## for(serv in services){
-##   petsTypeCurrent <- bind_rows(petsTypeCurrent,
+##   petsdateCurrent <- bind_rows(petsdateCurrent,
 ##     dat%>%
 ##       filter(
 ##         Student>0,
@@ -364,7 +374,7 @@ openxlsx::write.xlsx(preEts,"results/preEts.xlsx",rowNames=TRUE)
 ##   )
 ## }
 
-## preEtsCurrent$type <- petsTypeCurrent
+## preEtsCurrent$type <- petsdateCurrent
 
 ## preEtsCurrent <- map(preEtsCurrent,round,digits=1)
 
