@@ -22,10 +22,6 @@ dat$stud <- dat$Student>0
 
 services <- c('jec','wble','ceo','wrt','isa')
 
-## does "provider type" tell us anything new about who's getting services?
-for(serv in services)
-  xtabs(as.formula(paste0('~',serv,'VRAgencyPurchase+',serv,'PurchaseProviderType')),dat,addNA=TRUE)%>%print()
-## eh
 
 for(serv in services)
   dat[[serv]] <- apply(
@@ -254,6 +250,7 @@ preEtsTab <- function(serv){
     out <- rbind(out,
       dat%>%
         filter(
+          stud,
           !is.na(!! sym(demo))
         )%>%
         group_by(group,!! sym(demo))%>%
