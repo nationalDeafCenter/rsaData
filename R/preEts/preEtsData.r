@@ -5,7 +5,7 @@ sdatFile <- 'data/studDat.RData'
 if(
 (file.exists(sdatFile))& ## the prepared data is available
 (file.info(sdatFile)$mtime>file.info('R/data.r')$mtime)& ## and up to date
-(file.info(sdatFile)$mtime>file.info('R/preEtsData.r')$mtime)
+(file.info(sdatFile)$mtime>file.info('R/preEts/preEtsData.r')$mtime)
 ){
   load(sdatFile)
 } else{
@@ -57,3 +57,17 @@ if(
 
   save(studDat,file=sdatFile)
 }
+
+
+#### group numbers (Table 1 as of 4-17)
+nums <- studDat%>%
+  mutate(N=n())%>%
+  group_by(group)%>%
+  summarize(n=n(),`% of Total`=n()/N[1]*100) %>%
+  ungroup()%>%
+  add_case(group='total',n=sum(.$n),`% of Total`=sum(.$`% of Total`),.before=1)%>%
+  add_case(group='Numbers of students with disabilities')%>%
+  add_case(group=paste('Program Year:',paste(unique(studDat$ProgramYear),collapse=', ')))%>%
+  mutate(`% of Total`=round(`% of Total`,1))
+
+write_csv(nums,'results/studentWithDisabilityNumbers.csv')

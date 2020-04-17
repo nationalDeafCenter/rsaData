@@ -25,13 +25,15 @@ dat <- dat%>%
         ifelse(PrimDisability%in%3:7,'deaf',
           ifelse(PrimDisability==8,'deafblind',
             ifelse(PrimDisability%in%10:16,'mobility',
-              ifelse(PrimDisability>16,'cognitive','other')))),
+              ifelse(PrimDisability>16,'cognitive',
+                ifelse(PrimDisability%in%c(1,2),'visual','communicative'))))),
       SecondCat=
         ifelse(is.na(SecondDisability)|SecondDisability==0,'none',
           ifelse(SecondDisability%in%3:7,'deaf',
             ifelse(SecondDisability==8,'deafblind',
               ifelse(SecondDisability%in%10:16,'mobility',
-                ifelse(SecondDisability>16,'cognitive','other'))))),
+                ifelse(SecondDisability>16,'cognitive',
+                  ifelse(SecondDisability%in%c(1,2),'visual','communicative')))))),
       group=
         ifelse(primCat=='deafblind'|SecondCat=='deafblind','deafblind',
           ifelse(SecondCat=='none',
@@ -40,8 +42,14 @@ dat <- dat%>%
           )),
       deafAll=ifelse(group%in%c('deafblind','deafNonDisabled','deafDisabled'),'deaf','hearing')
     )
+dat$group[dat$group=='deafDisabled'&(dat$primCat=='visual'|dat$SecondCat=='visual')] <- 'deafblind'
 
 ### impairments by group table
+sink('results/groupDefs.txt')
+print(xtabs(~primCat+SecondCat+group,dat,addNA=TRUE,drop=TRUE))
+sink()
+
+
 dat$imp1 <- impairments$imp[dat$PrimDisability+1]
 dat$imp2 <- impairments$imp[dat$SecondDisability+1]
 dat$imp2 <- ifelse(dat$imp2%in%c(
@@ -81,7 +89,8 @@ groupDef <- function(dat,percentage=FALSE){
             deafNonDisabled="Primary disability is deafness or hearing loss/impairment; no secondary disability",
             deafDisabled="Primary or secondary disability is deafness or hearing loss/impairment; a secondary disability is listed",
             mobility="Non-deaf; primary disability classified as \"Physical Impairment\"",
-            other="Non-deaf; primary disability is another \"Sensory/Communicative Impairment\""))
+            other="Non-deaf; primary disability is another \"Sensory/Communicative Impairment\"")
+        )
         )
       } else impTab <- bind_rows(impTab,tibble(Primary=prim[i],Secondary=sec[i]))
     }
@@ -89,9 +98,10 @@ groupDef <- function(dat,percentage=FALSE){
   impTab
 }
 
-impTab <- groupDef(dat)
-impTabPer <- groupDef(dat,percentage=TRUE)
-openxlsx::write.xlsx(list(n=impTab,percentage=impTabPer),'results/groupDefFull.xlsx')#,alignment=Alignment(wrapText=TRUE))
+## impTab <- groupDef(dat)
+## impTabPer <- groupDef(dat,percentage=TRUE)
+## openxlsx::write.xlsx(list(n=impTab,percentage=impTabPer),'results/groupDefFull.xlsx')
+#,alignment=Alignment(wrapText=TRUE))
 
 
 ## compute numbers:

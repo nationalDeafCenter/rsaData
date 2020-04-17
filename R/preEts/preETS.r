@@ -18,9 +18,9 @@ if(!exists("studDat")){
 stopifnot(all(studDat$Student>0))
 
 #### definitions of "group"
-impTab <- groupDef(studDat)
-impTabPer <- groupDef(studDat,percentage=TRUE)
-openxlsx::write.xlsx(list(n=impTab,percentage=impTabPer),'results/groupDefSwD.xlsx')
+## impTab <- groupDef(studDat)
+## impTabPer <- groupDef(studDat,percentage=TRUE)
+## openxlsx::write.xlsx(list(n=impTab,percentage=impTabPer),'results/groupDefSwD.xlsx')
 
 
 ################################
@@ -29,7 +29,7 @@ openxlsx::write.xlsx(list(n=impTab,percentage=impTabPer),'results/groupDefSwD.xl
 source('R/preEts/preEtsSubgroupFunction.r')
 preEts <-  map(c('petsdate','anyServ',services),~preEtsTab(mean(!! sym(.),na.rm=TRUE)*100))
 names(preEts) <- c('Start Date','Any',toupper(services))
-preEts <- map(preEts,function(x) bind_rows(x,subgroup="All numbers are % ever received pre-ETS service")
+preEts <- map(preEts,function(x) bind_rows(x,tibble(subgroup="All numbers are % ever received pre-ETS service")))
 
 preEts$numbers <- preEtsTab(n())
 preEts$percentages <- preEts$numbers%>%
@@ -73,3 +73,8 @@ openxlsx::write.xlsx(preEts,"results/preEts.xlsx",rowNames=TRUE)
 ############################################
 
 source('R/preEts/oosPreEts.r')
+
+############################################
+### by state
+############################################
+source('R/preEts/preEtsState.r')
