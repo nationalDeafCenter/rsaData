@@ -219,3 +219,4 @@ dat <- mutate(dat,
   fulltime=ipeWeeklyHoursWorked>=35
 )
 
+save(dat,file='data/dat.RData')
