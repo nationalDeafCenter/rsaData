@@ -8,13 +8,84 @@ if(
 (file.info(sdatFile)$mtime>file.info('R/preEts/preEtsData.r')$mtime)
 ){
   load(sdatFile)
-} else{
+} else
+{
+  fullDatFile <- 'data/dat.RData'
+  if(
+    (file.exists(fullDatFile))&
+    (file.info(fullDatFile)$mtime>file.info('R/data.r')$mtime) ## and up to date
+    ){
+    load(fullDatFile)
+  } else source('R/data.r') ### load in data, standard RSA data prep
 
-  source('R/data.r') ### load in data, standard RSA data prep
-  studDat <- filter(dat,Student>0) ## only interested in "students with a disability"
-  rm(dat) ## save ram
-  gc()
+  ### define sample of interest (see R/preEts/studentsWithDis.r)
 
+  #### classified as "student with a disability" (SWD)
+  ## studDat <- filter(dat,Student>0) ## only interested in "students with a disability"
+  ## rm(dat) ## save ram
+  ## gc()
+
+  dat$stud <- dat$Student>0
+
+  ### age (at application) within 1 year of the state age range for SWD:
+
+  ## determine state-level age ranges
+  ages <- strsplit(unique(dat$StateDisStudentAgeRange),';')%>%
+    map_dfr(~tibble(StateDisStudentAgeRange=paste(.,collapse=';'),ageMin=.[1],ageMax=.[2]))
+
+  ## bind to dat (check that we're lining things up right first)
+  ages <- ages[match(dat$StateDisStudentAgeRange,ages$StateDisStudentAgeRange),]
+  stopifnot(
+    all.equal(dat$StateDisStudentAgeRange,ages$StateDisStudentAgeRange,na.rm=TRUE)
+    )
+  dat <- bind_cols(dat,ages[,-1])
+
+## fill in missing values by state
+  dat <- dat%>%
+    group_by(state)%>%
+    mutate(ageMaxMax=max(ageMax,na.rm=TRUE),ageMinMin=min(ageMin,na.rm=TRUE))%>%
+    ungroup()%>%
+    mutate(
+      ageMax=ifelse(is.na(ageMax),ageMaxMax,ageMax),
+      ageMin=ifelse(is.na(ageMin),ageMinMin,ageMin)
+    )%>%
+    select(-ageMinMin,-ageMaxMax)
+
+## age is in range if it is within +/- 1 year of state's age range
+  dat$inRange <-
+    dat$age_app<=(as.numeric(dat$ageMax)+1)&
+    dat$age_app>=(as.numeric(dat$ageMin)-1)
+
+## when there's no application date, if there's a PETS start date set to TRUE, o.w. FALSE
+  dat$inRange[is.na(dat$inRange)&!is.na(dat$PETSStartDate)] <- TRUE
+  dat$inRange[is.na(dat$inRange)] <- FALSE
+
+  dat$petsdate <- !is.na(dat$PETSStartDate)
+
+  dat$post2014 <- ifelse(!dat$petsdate, TRUE, dat$PETSStartDate>20131231)
+
+  dat$appPost2013 <- with(dat,ifelse(is.na(ApplicationDate)|petsdate,TRUE,ApplicationDate>20121231))
+
+  fol <- function(x,levF,levT) factor(ifelse(x,levT,levF),levels=c(levF,levT))
+  sampleSizes <- dat%>%
+    mutate(
+      stud=fol(stud,'non-SWD','SWD'),
+      inRange=fol(inRange,'Age NOT in Range','Age in Range'),
+      post2014=fol(post2014,'PETS b/f 2014','PETS 2014+'),
+      appPost2013=fol(appPost2013,'App b/f 2013','App post 2013')
+      )%>%
+    group_by(stud,inRange,post2014,appPost2013)%>%
+    summarize(
+      total=n(),
+      NonPETS=sum(!petsdate),
+      PETS=sum(petsdate),
+      totalDeaf=sum(deafAll=='deaf'),
+      DeafNonPETS=sum(!petsdate&deafAll=='deaf'),
+      DeafPETS=sum(deafAll=='deaf'&petsdate))
+
+  write.csv(sampleSizes,'studResults/sampleSizes.csv',row.names=FALSE)
+
+  studDat <- filter(dat,stud,inRange,post2014,appPost2013)
 
 ################################################
 #### Define Variables of Interest
