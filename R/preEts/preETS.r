@@ -78,3 +78,5 @@ source('R/preEts/oosPreEts.r')
 ### by state
 ############################################
 source('R/preEts/preEtsState.r')
+preEts$byState <- states
+openxlsx::write.xlsx(preEts,"results/preEts.xlsx",rowNames=FALSE)
