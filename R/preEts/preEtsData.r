@@ -85,7 +85,7 @@ if(
 
   write.csv(sampleSizes,'studResults/sampleSizes.csv',row.names=FALSE)
 
-  studDat <- filter(dat,stud,inRange,post2014,appPost2013)
+  studDat <- filter(dat,stud,inRange,post2014)#,appPost2013)
 
 ################################################
 #### Define Variables of Interest
