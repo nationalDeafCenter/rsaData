@@ -2,19 +2,23 @@ require(tidyverse)
 
 
 
-subgroupTab <- function(what){
+subgroupTab <- function(
+  what, # what to calculate for each subgroup, goes in summarize() e.g. n(), mean(age_app), etc.
+  dat, # dataset
+  demos=c('sex','raceEth','ageApp','SSDI','SSI') ## demographics to
+  ){
 
   what <- enquo(what)
 
   FUN <- function(.data) summarize(.data=.data,Y=!! what)
 
   out <- bind_rows(
-    studDat%>%FUN(),
-    studDat%>%group_by(group)%>%FUN(),
-    studDat%>%mutate(group=deafAll)%>%group_by(group)%>%FUN()
+    dat%>%FUN(),
+    dat%>%group_by(group)%>%FUN(),
+    dat%>%mutate(group=deafAll)%>%group_by(group)%>%FUN()
   )
   for(demo in demos){
-    demoDat <- filter(studDat,!is.na(!!sym(demo)))%>%
+    demoDat <- filter(dat,!is.na(!!sym(demo)))%>%
       group_by(group)%>%
       rename(subgroup=!!demo)%>%
       group_by(subgroup)
